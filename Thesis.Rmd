@@ -1,0 +1,179 @@
+---
+title: "Thesis Code"
+author: "Joe Andersen"
+date: "1/09/2023"
+output:
+  word_document: default
+  html_document: default
+  pdf_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+library(pacman)
+library(hrbrthemes)
+p_load(readr, dplyr, tidyverse, stargazer, broom, ggplot2, lmtest, sandwich) #loading packages
+hrbrthemes::import_roboto_condensed()
+
+setwd("/Users/joeandersen/Desktop")
+data <- read_csv("PartialSynchrony_BFT.csv")
+```
+
+EXPERIMENT #1 "NAKAMOTO COEFFICIENT AND CONSENSUS MECHANISMS"
+```{r}
+#Cleaning data
+#adding new column to convert block num (blocks per year) to block time (blocks per minute)
+data <- data %>% mutate(blocktime = (blocknum / 365 / 24 / 60))
+```
+
+```{r}
+#Plots for RQ 1
+#Nakamoto Coefficient vs. Block Time
+blocktime <- ggplot(data, aes(x = blocktime, y = nakamoto)) + geom_point(aes(color = blocktime), show.legend = FALSE) +
+    xlab("Num of Blocks per Minute") + ylab("Nakamoto Coefficient") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#Nakamoto Coefficient vs. Block Size 
+blocksize <- ggplot(data, aes(x = blocksize, y = nakamoto)) + geom_point(aes(color = blocksize), show.legend = FALSE) +
+    xlab("Blocksize (bytes)") + ylab("Nakamoto Coefficient") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#Nakamoto Coefficient vs. Validator Cap
+validatorcap <- ggplot(data, aes(x = validators, y = nakamoto)) + geom_point(aes(color = validators), show.legend = FALSE) +
+    xlab("Number of Validators in Active Set") + ylab("Nakamoto Coefficient") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#Nakamoto Coefficient vs. Network Age
+networkage <- ggplot(data, aes(x = age, y = nakamoto)) + geom_point(aes(color = age), show.legend = FALSE) +
+    xlab("Network age (months)") + ylab("Nakamoto Coefficient") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#Nakamoto Coefficient vs. Market Capitalization
+marketcap <- ggplot(data, aes(x = mc, y = nakamoto)) + geom_point(aes(color = mc), show.legend = FALSE) +
+    xlab("Market Capitalization ($)") + ylab("Nakamoto Coefficient") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#Nakamoto Coefficient vs. Market Capitalization
+marketcap2 <- ggplot(data, aes(x = log(mc), y = nakamoto)) + geom_point(aes(color = mc), show.legend = FALSE) +
+    xlab("Market Capitalization (Log Scale $)") + ylab("Nakamoto Coefficient") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+ggsave("blocktime.jpg", blocktime, path = "/Users/joeandersen/Desktop")
+ggsave("blocksize.jpg", blocksize, path = "/Users/joeandersen/Desktop")
+ggsave("validatorcap.jpg", validatorcap, path = "/Users/joeandersen/Desktop")
+ggsave("networkage.jpg", networkage, path = "/Users/joeandersen/Desktop")
+ggsave("marketcap.jpg", marketcap, path = "/Users/joeandersen/Desktop")
+ggsave("marketcap2.jpg", marketcap2, path = "/Users/joeandersen/Desktop")
+```
+
+```{r mylatextable, results = "asis"}
+#OLS Model
+reg1 <- lm(nakamoto ~ blocktime + blocksize + validators + age + mc, data)
+cov0         <- vcovHC(reg1, type = "HC1")
+robust_se    <- sqrt(diag(cov0))
+stargazer(reg1, type = 'latex', se = list(robust_se), title = "OLS Model")
+
+#Log transformed model
+reg2 <- lm(nakamoto ~ log(blocktime) + log(blocksize) + log(validators) + log(age) + log(mc), data)
+cov1         <- vcovHC(reg2, type = "HC1")
+robust_se2    <- sqrt(diag(cov1))
+stargazer(reg2, type = 'latex', se = list(robust_se2), title = "Log Transformed OLS Model")
+```
+
+EXPERIMENT #2 "NETWORK HASH RATE AND NETWORK USAGE
+```{r}
+library(pacman)
+library(hrbrthemes)
+library(scales)
+library(plotly)
+p_load(readr, dplyr, tidyverse, stargazer, broom, ggplot2, lmtest, sandwich) #loading packages
+setwd("/Users/joeandersen/Desktop")
+
+difficulty <- read_csv("export-BlockDifficulty.csv")
+utilization <- read_csv("export-NetworkUtilization.csv")
+txs <- read_csv("export-TxGrowth.csv")
+addresses <- read_csv("export-AddressCount.csv")
+marketcap <- read_csv("export-MarketCap.csv")
+```
+
+```{r}
+#Cleaning data
+networkdata <- difficulty
+networkdata <- networkdata %>% mutate(network_difficulty = Value)
+
+networkdata <- networkdata %>% mutate(network_utilization = utilization$Value)
+networkdata <- networkdata %>% mutate(daily_transactions = txs$Value)
+networkdata <- networkdata %>% mutate(daily_addresses = addresses$Value)
+networkdata <- networkdata %>% mutate(market_capitalization = marketcap$MarketCap)
+
+head(networkdata)
+```
+
+```{r}
+#Plots for RQ2
+#network_difficulty
+difficulty_time <- ggplot(networkdata, aes(x = UnixTimeStamp, y = network_difficulty)) + geom_point(aes(color = network_difficulty), show.legend = FALSE) +
+    xlab("Date (UnixTimeStamp)") + ylab("Network Difficulty (TH)") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#network_utilization
+utilization_time <- ggplot(networkdata, aes(x = UnixTimeStamp, y = network_utilization)) + geom_point(aes(color = network_utilization), show.legend = FALSE) +
+    xlab("Date (UnixTimeStamp)") + ylab("Network Utilization") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+utilization_difficulty <- ggplot(networkdata, aes(x = network_utilization, y = network_difficulty)) + geom_point(aes(color = network_utilization), show.legend = FALSE) +
+    xlab("Network Utilization") + ylab("Network Difficulty (Terahashes)") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#daily_transactions
+txs_time <- ggplot(networkdata, aes(x = UnixTimeStamp, y = daily_transactions)) + geom_point(aes(color = daily_transactions), show.legend = FALSE) +
+    xlab("Date (UnixTimeStamp)") + ylab("Daily Transactions") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+txs_difficulty <- ggplot(networkdata, aes(x = daily_transactions, y = network_difficulty)) + geom_point(aes(color = daily_transactions), show.legend = FALSE) +
+    xlab("Daily Transactions") + ylab("Network Difficulty (Terahashes)") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#daily_addresses
+addresses_time <- ggplot(networkdata, aes(x = UnixTimeStamp, y = daily_addresses)) + geom_point(aes(color = daily_addresses), show.legend = FALSE) +
+    xlab("Date (UnixTimeStamp)") + ylab("Daily Addresses") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+addresses_difficulty <- ggplot(networkdata, aes(x = daily_addresses, y = network_difficulty)) + geom_point(aes(color = daily_addresses), show.legend = FALSE) +
+    xlab("Daily Addresses") + ylab("Network Difficulty (Terahashes)") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+#market_capitalization
+mc_time <- ggplot(networkdata, aes(x = UnixTimeStamp, y = market_capitalization)) + geom_point(aes(color = market_capitalization), show.legend = FALSE) +
+    xlab("Date (UnixTimeStamp)") + ylab("Market Capitalization ($)") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+mc_difficulty <- ggplot(networkdata, aes(x = market_capitalization, y = network_difficulty)) + geom_point(aes(color = market_capitalization), show.legend = FALSE) +
+    xlab("Market Capitalization ($)") + ylab("Network Difficulty (Terahashes)") +
+    theme_linedraw(base_size = 24) + theme(panel.background = element_rect(fill = 'grey75')) + geom_smooth()
+
+ggsave("difficulty_time.jpg", difficulty_time, path = "/users/joeandersen/desktop")
+#ggsave("utilization_time.jpg", utilization_time, path = "/Users/joeandersen/Desktop")
+#ggsave("utilization_difficulty.jpg", utilization_difficulty, path = "/Users/joeandersen/Desktop")
+#ggsave("txs_time.jpg", txs_time, path = "/Users/joeandersen/Desktop")
+#ggsave("txs_difficulty.jpg", txs_difficulty, path = "/Users/joeandersen/Desktop")
+#ggsave("addresses_time.jpg", addresses_time, path = "/Users/joeandersen/Desktop")
+#ggsave("addresses_difficulty.jpg", addresses_difficulty, path = "/Users/joeandersen/Desktop")
+#ggsave("mc_time.jpg", mc_time, path = "/Users/joeandersen/Desktop")
+#ggsave("mc_difficulty.jpg", mc_difficulty, path = "/Users/joeandersen/Desktop")
+```
+
+```{r mylatextable, results = "asis"}
+#Remove data after EIP-1559 (UnixTimeStamp: 1628121600, Date 08/05/2021)
+clean_data <- subset(networkdata, UnixTimeStamp < 1628121600)
+
+#OLS Model
+reg3 <- lm(network_difficulty ~ network_utilization + daily_transactions + daily_addresses + market_capitalization, networkdata)
+cov0         <- vcovHC(reg3, type = "HC1")
+robust_se    <- sqrt(diag(cov0))
+stargazer(reg3, type = 'latex', se = list(robust_se), title = "OLS Model")
+```
+
